@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="styles.css" />
+    <title>CRUD Frontend</title>
+  </head>
+  <body>
+    <!-- Login Form -->
+    <div id="loginForm" class="form-container">
+      <h2>Admin Login</h2>
+      <form id="loginFormElement">
+        <div class="form-group">
+          <label for="username">Username:</label>
+          <input type="text" id="username" name="username" required />
+        </div>
+        <div class="form-group">
+          <label for="password">Password:</label>
+          <input type="password" id="password" name="password" required />
+        </div>
+        <button type="submit">Login</button>
+      </form>
+      <div id="loginError" class="error-message"></div>
+      <div class="demo-credentials">
+        <p><strong>Demo Credentials:</strong></p>
+        <p>Username: admin</p>
+        <p>Password: admin123</p>
+      </div>
+    </div>
+
+    <!-- CRUD Interface (hidden until login) -->
+    <div id="crudInterface" style="display: none">
+      <div
+        style="
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 2rem;
+        "
+      >
+        <h1>CRUD Frontend</h1>
+        <button id="logoutBtn" class="logout-btn">Logout</button>
+      </div>
+
+      <section id="create">
+        <h2>Create Item</h2>
+        <input id="name" placeholder="Name" />
+        <textarea id="description" placeholder="Description"></textarea>
+        <input
+          id="longitude"
+          placeholder="Longitude"
+          type="number"
+          step="any"
+        />
+        <input id="latitude" placeholder="Latitude" type="number" step="any" />
+        <button onclick="createItem()">Create</button>
+      </section>
+
+      <section id="read-all">
+        <h2>All Items</h2>
+        <button onclick="readAll()">Refresh List</button>
+        <div id="items-list"></div>
+      </section>
+
+      <section id="read-one">
+        <h2>Read One Item</h2>
+        <input id="read-id" placeholder="Item ID" />
+        <button onclick="readOne()">Read</button>
+        <pre id="read-one-result"></pre>
+      </section>
+
+      <section id="geo-search">
+        <h2>Search Nearby Locations</h2>
+        <input
+          id="search-longitude"
+          placeholder="Longitude"
+          type="number"
+          step="any"
+        />
+        <input
+          id="search-latitude"
+          placeholder="Latitude"
+          type="number"
+          step="any"
+        />
+        <input id="search-radius" placeholder="Radius (meters)" type="number" />
+        <button onclick="searchNearby()">Search</button>
+        <div id="geo-search-results"></div>
+      </section>
+
+      <section id="update">
+        <h2>Update Item</h2>
+        <input id="update-id" placeholder="Item ID" />
+        <input id="update-name" placeholder="Name" />
+        <textarea id="update-description" placeholder="Description"></textarea>
+        <input
+          id="update-longitude"
+          placeholder="Longitude"
+          type="number"
+          step="any"
+        />
+        <input
+          id="update-latitude"
+          placeholder="Latitude"
+          type="number"
+          step="any"
+        />
+        <button onclick="updateItem()">Update</button>
+      </section>
+
+      <section id="delete">
+        <h2>Delete Item</h2>
+        <input id="delete-id" placeholder="Item ID" />
+        <button onclick="deleteItem()">Delete</button>
+      </section>
+    </div>
+
+    <script>
+      const API_BASE = "/items";
+      let authToken = localStorage.getItem("authToken");
+
+      // Check if user is already logged in
+      if (authToken) {
+        showCrudInterface();
+      }
+
+      // Login form handler
+      document
+        .getElementById("loginFormElement")
+        .addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const username = document.getElementById("username").value;
+          const password = document.getElementById("password").value;
+
+          try {
+            const response = await fetch("/auth/login", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ username, password }),
+            });
+
+            if (response.ok) {
+              const data = await response.json();
+              authToken = data.access_token;
+              localStorage.setItem("authToken", authToken);
+              showCrudInterface();
+            } else {
+              const error = await response.json();
+              document.getElementById("loginError").textContent =
+                error.detail || "Login failed";
+            }
+          } catch (error) {
+            document.getElementById("loginError").textContent =
+              "Network error: " + error.message;
+          }
+        });
+
+      // Logout handler
+      document.getElementById("logoutBtn").addEventListener("click", () => {
+        localStorage.removeItem("authToken");
+        authToken = null;
+        showLogin();
+      });
+
+      function showLogin() {
+        document.getElementById("loginForm").style.display = "block";
+        document.getElementById("crudInterface").style.display = "none";
+      }
+
+      function showCrudInterface() {
+        document.getElementById("loginForm").style.display = "none";
+        document.getElementById("crudInterface").style.display = "block";
+        readAll(); // Load items on login
+      }
+
+      async function createItem() {
+        const name = document.getElementById("name").value;
+        const description = document.getElementById("description").value;
+        const longitude = parseFloat(
+          document.getElementById("longitude").value
+        );
+        const latitude = parseFloat(document.getElementById("latitude").value);
+
+        const data = { name, description, longitude, latitude };
+        const res = await fetch(API_BASE + "/", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${authToken}`,
+          },
+          body: JSON.stringify(data),
+        });
+
+        if (res.status === 401) {
+          localStorage.removeItem("authToken");
+          showLogin();
+          return;
+        }
+
+        const result = await res.json();
+        alert("Created item with ID: " + result.id);
+        readAll();
+      }
+
+      async function readAll() {
+        const res = await fetch(API_BASE + "/", {
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
+        });
+
+        if (res.status === 401) {
+          localStorage.removeItem("authToken");
+          showLogin();
+          return;
+        }
+
+        const items = await res.json();
+        const list = document.getElementById("items-list");
+        list.innerHTML = "";
+        items.forEach((item) => {
+          const div = document.createElement("div");
+          div.className = "item";
+          div.textContent = JSON.stringify(item, null, 2);
+          list.appendChild(div);
+        });
+      }
+
+      async function readOne() {
+        const id = document.getElementById("read-id").value;
+        if (!id) return alert("Please provide an item ID");
+
+        const res = await fetch(API_BASE + "/" + id, {
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
+        });
+
+        if (res.status === 401) {
+          localStorage.removeItem("authToken");
+          showLogin();
+          return;
+        }
+
+        if (res.status === 404) {
+          alert("Item not found");
+          return;
+        }
+
+        const item = await res.json();
+        document.getElementById("read-one-result").textContent = JSON.stringify(
+          item,
+          null,
+          2
+        );
+      }
+
+      async function updateItem() {
+        const id = document.getElementById("update-id").value;
+        if (!id) return alert("Please provide an item ID");
+
+        const name = document.getElementById("update-name").value;
+        const description = document.getElementById("update-description").value;
+        const longitude = parseFloat(
+          document.getElementById("update-longitude").value
+        );
+        const latitude = parseFloat(
+          document.getElementById("update-latitude").value
+        );
+
+        const data = { name, description, longitude, latitude };
+
+        const res = await fetch(API_BASE + "/" + id, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${authToken}`,
+          },
+          body: JSON.stringify(data),
+        });
+
+        if (res.status === 401) {
+          localStorage.removeItem("authToken");
+          showLogin();
+          return;
+        }
+
+        if (res.ok) alert("Updated");
+        else alert("Failed to update");
+      }
+
+      async function deleteItem() {
+        const id = document.getElementById("delete-id").value;
+        if (!id) return alert("Please provide an item ID");
+
+        const res = await fetch(API_BASE + "/" + id, {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
+        });
+
+        if (res.status === 401) {
+          localStorage.removeItem("authToken");
+          showLogin();
+          return;
+        }
+
+        if (res.ok) alert("Deleted");
+        else alert("Failed to delete");
+        readAll();
+      }
+
+      async function searchNearby() {
+        const longitude = parseFloat(
+          document.getElementById("search-longitude").value
+        );
+        const latitude = parseFloat(
+          document.getElementById("search-latitude").value
+        );
+        const radius = parseInt(document.getElementById("search-radius").value);
+
+        if (isNaN(longitude) || isNaN(latitude) || isNaN(radius)) {
+          alert("Please enter valid longitude, latitude, and radius");
+          return;
+        }
+
+        const res = await fetch(
+          `${API_BASE}/search?longitude=${longitude}&latitude=${latitude}&radius=${radius}`,
+          {
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+            },
+          }
+        );
+
+        if (res.status === 401) {
+          localStorage.removeItem("authToken");
+          showLogin();
+          return;
+        }
+
+        if (!res.ok) {
+          alert("Search failed");
+          return;
+        }
+
+        const results = await res.json();
+        const container = document.getElementById("geo-search-results");
+        container.innerHTML = "<h3>Results:</h3>";
+        results.forEach((item) => {
+          const div = document.createElement("div");
+          div.className = "item";
+          div.textContent = JSON.stringify(item, null, 2);
+          container.appendChild(div);
+        });
+      }
+    </script>
+  </body>
+</html>
