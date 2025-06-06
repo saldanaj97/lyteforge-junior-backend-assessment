@@ -21,7 +21,7 @@ A full-stack CRUD application built with FastAPI and MongoDB, featuring geospati
 1. **Clone the repository**
 
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/saldanaj97/lyteforge-junior-backend-assessment.git
    cd lyteforge-junior-backend-assessment
    ```
 
