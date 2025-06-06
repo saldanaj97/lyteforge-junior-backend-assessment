@@ -8,8 +8,8 @@ services:
     ports:
       - "${MONGO_PORT}:${MONGO_PORT}"
     environment:
-      MONGO_DB_ROOT_USERNAME: ${MONGO_DB_ROOT_USERNAME}
-      MONGO_DB_ROOT_PASSWORD: ${MONGO_DB_ROOT_PASSWORD}
+      MONGO_DB_ADMIN_USERNAME: ${MONGO_DB_ADMIN_USERNAME}
+      MONGO_DB_ADMIN_PASSWORD: ${MONGO_DB_ADMIN_PASSWORD}
     volumes:
       - mongo-data:/data/db
 
